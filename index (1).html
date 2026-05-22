@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SolarSquare Solver — v33</title>
+<style>
+  :root {
+    --bg: #fafaf7; --panel: #fff; --border: #e6e4dc; --border-strong: #d4d0c4;
+    --text: #1c1c1a; --text-soft: #6b6b66; --text-faint: #94948c;
+    --accent: #c84a1c; --success: #1d9e75; --success-soft: #d6efe6;
+    --warning: #ef9f27; --warning-soft: #fbe9c8; --danger: #e24b4a; --danger-soft: #f8d8d6;
+    --info: #2563a5; --info-soft: #d6e3f2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 16px; min-height: 100vh; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; margin-bottom: 12px; }
+  .panel h3 { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-soft); }
+  label.field { display: block; margin-bottom: 12px; }
+  label.field .row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  label.field .row span:first-child { font-size: 13px; }
+  label.field .row span:last-child { font-size: 13px; font-weight: 600; }
+  input[type="range"] { width: 100%; }
+  input[type="number"] { width: 100%; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: 12px; font-family: inherit; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 6px; align-items: center; }
+  .grid-3 input { height: 28px; }
+  .grid-4 { display: grid; grid-template-columns: 0.7fr 1.5fr 1.5fr 0.8fr; gap: 6px; align-items: center; }
+  .grid-4 input[type="number"] { height: 28px; width: 100%; }
+  button.solve { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 4px; font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 6px; }
+  button.solve:hover { opacity: 0.9; }
+  button.solve:disabled { opacity: 0.5; cursor: wait; }
+  .status { padding: 12px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; background: var(--panel); border: 1px solid var(--border); }
+  .status.solving { background: var(--warning-soft); color: var(--warning); }
+  .status.ok { background: var(--success-soft); color: var(--success); }
+  .status.err { background: var(--danger-soft); color: var(--danger); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+  .kpi .label { font-size: 11px; color: var(--text-soft); margin: 0; }
+  .kpi .value { font-size: 22px; font-weight: 600; margin: 4px 0 0; }
+  .kpi.success { background: var(--success-soft); }
+  .kpi.success .label, .kpi.success .value { color: var(--success); }
+  .info-row { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 12px; }
+  .info-row .label { font-size: 11px; color: var(--text-soft); margin: 0; }
+  .info-row .value { font-size: 15px; font-weight: 600; margin: 2px 0 0; }
+  .compare { background: var(--success-soft); }
+  .compare .value { color: var(--success); }
+  table.roster { width: 100%; border-collapse: collapse; font-size: 10px; }
+  table.roster th, table.roster td { padding: 4px; border-bottom: 1px solid var(--border); text-align: center; }
+  table.roster th { background: var(--panel); position: sticky; top: 0; z-index: 2; font-weight: 600; }
+  table.roster th.day, table.roster td.day { text-align: left; position: sticky; left: 0; background: var(--panel); z-index: 1; min-width: 70px; }
+  table.roster tr.peak { background: rgba(239, 159, 39, 0.05); }
+  table.roster tr.peak td.day { background: #faeeda; }
+  .cell { padding: 2px 1px; border-radius: 2px; font-size: 9px; line-height: 1.2; min-width: 36px; }
+  .cell.DD { background: var(--success); color: white; font-weight: 600; }
+  .cell.SD { background: var(--info-soft); color: var(--info); }
+  .cell.SL { background: var(--danger); color: white; font-weight: 600; }
+  .cell.idle { color: var(--text-faint); }
+  table.pnl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.pnl th, table.pnl td { padding: 6px; border-bottom: 1px solid var(--border); }
+  table.pnl th { text-align: left; font-weight: 600; color: var(--text-soft); }
+  table.pnl th.num, table.pnl td.num { text-align: right; }
+  table.pnl tfoot td { font-weight: 600; background: var(--bg); padding: 10px 6px; border-top: 2px solid var(--border-strong); }
+  .scroll-x { overflow-x: auto; max-height: 600px; overflow-y: auto; }
+  .alert { padding: 8px 12px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; }
+  .alert.warning { background: var(--warning-soft); color: var(--warning); }
+  .alert.danger { background: var(--danger-soft); color: var(--danger); }
+  .alert.success { background: var(--success-soft); color: var(--success); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <div>
+    <div class="panel">
+      <h3>Sliders</h3>
+      <label class="field"><div class="row"><span>Peak to BAU ratio</span><span id="r-peak">1.3</span></div><input type="range" id="s-peak" min="1" max="2" step="0.1" value="1.3"></label>
+      <label class="field"><div class="row"><span>Slip % on 2-install sites</span><span id="r-sl2">10%</span></div><input type="range" id="s-sl2" min="0" max="100" step="1" value="10"></label>
+      <label class="field"><div class="row"><span>Slip % on 1-install sites</span><span id="r-sl1">20%</span></div><input type="range" id="s-sl1" min="0" max="100" step="1" value="20"></label>
+      <label class="field"><div class="row"><span>2i eligibility % (daily)</span><span id="r-elig">40%</span></div><input type="range" id="s-elig" min="20" max="100" step="1" value="40"></label>
+      <label class="field"><div class="row"><span>Total sites in month</span><span id="r-tot">530</span></div><input type="range" id="s-tot" min="200" max="2000" step="10" value="530"></label>
+    </div>
+
+    <div class="panel">
+      <h3>Assumptions</h3>
+      <div class="grid-4" style="margin-bottom: 4px; font-size: 10px; color: var(--text-faint);"><span>Slab</span><span>2i Rate (₹)</span><span>1i Rate (₹)</span><span>DD?</span></div>
+      <div class="grid-4" style="margin-bottom: 4px;"><span>S1</span><input type="number" id="a-s1" value="8000"><input type="number" id="a-s1-1i" value="8000"><input type="checkbox" id="dd-s1" checked></div>
+      <div class="grid-4" style="margin-bottom: 4px;"><span>S2</span><input type="number" id="a-s2" value="8500"><input type="number" id="a-s2-1i" value="8500"><input type="checkbox" id="dd-s2" checked></div>
+      <div class="grid-4" style="margin-bottom: 4px;"><span>S3</span><input type="number" id="a-s3" value="10000"><input type="number" id="a-s3-1i" value="10000"><input type="checkbox" id="dd-s3"></div>
+      <div class="grid-4" style="margin-bottom: 8px;"><span>S4</span><input type="number" id="a-s4" value="15000"><input type="number" id="a-s4-1i" value="15000"><input type="checkbox" id="dd-s4"></div>
+
+      <div style="font-size: 11px; color: var(--text-faint); margin-bottom: 6px;">Slab mix %</div>
+      <div class="grid-2" style="margin-bottom: 8px;">
+        <label class="field" style="margin:0;"><div class="row"><span>S1%</span></div><input type="number" id="a-mix1" value="9.8" step="0.1"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>S2%</span></div><input type="number" id="a-mix2" value="79.6" step="0.1"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>S3%</span></div><input type="number" id="a-mix3" value="10.0" step="0.1"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>S4%</span></div><input type="number" id="a-mix4" value="0.6" step="0.1"></label>
+      </div>
+
+      <div style="font-size: 11px; color: var(--text-faint); margin-bottom: 6px;">Costs &amp; constraints</div>
+      <div class="grid-2">
+        <label class="field" style="margin:0;"><div class="row"><span>2i cost</span></div><input type="number" id="a-c2" value="180000"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>1i cost</span></div><input type="number" id="a-c1" value="140000"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>DD discount</span></div><input type="number" id="a-disc" value="0.7" step="0.05"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>Days/month</span></div><input type="number" id="a-days" value="30"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>Max work days/vendor</span></div><input type="number" id="a-mwd" value="26"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>Baseline ₹/site</span></div><input type="number" id="a-base" value="10572"></label>
+        <label class="field" style="margin:0;"><div class="row"><span>Solver timeout (s)</span></div><input type="number" id="a-tl" value="75"></label>
+      </div>
+
+      <button class="solve" id="solve-btn">Run CP-SAT solver</button>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+        <label class="field" style="margin:0 0 6px 0;"><div class="row"><span>City name (for PDF report)</span></div><input type="text" id="a-city" placeholder="e.g. Mumbai" value=""></label>
+        <button class="solve" id="report-btn" disabled style="background: #131ac3;">Generate PDF Report</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div id="status" class="status">Click "Run CP-SAT solver" to start. Solving takes ~75 seconds.</div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><p class="label">2i vendors</p><p class="value" id="k-v2">—</p></div>
+      <div class="kpi"><p class="label">1i vendors</p><p class="value" id="k-v1">—</p></div>
+      <div class="kpi"><p class="label">Modelled payout</p><p class="value" id="k-pay">—</p></div>
+      <div class="kpi success"><p class="label">SSE savings</p><p class="value" id="k-sav">—</p></div>
+    </div>
+
+    <div class="info-row" style="grid-template-columns: repeat(3, 1fr);">
+      <div><p class="label">Total slips/mo</p><p class="value" id="m-total">—</p></div>
+      <div><p class="label">Pxx achieved</p><p class="value" id="m-ach">—</p></div>
+      <div><p class="label">Solver status</p><p class="value" id="m-status">—</p></div>
+    </div>
+
+    <div class="info-row compare" style="padding: 12px;">
+      <div style="font-size: 12px; font-weight: 600; color: var(--text-soft); margin-bottom: 8px;">Profit distribution</div>
+      <table id="profit-dist" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <th style="text-align: left; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">Percentile</th>
+            <th style="text-align: right; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">2-Install</th>
+            <th style="text-align: right; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">1-Install</th>
+          </tr>
+        </thead>
+        <tbody id="profit-dist-body"></tbody>
+      </table>
+    </div>
+
+    <div id="alerts"></div>
+
+    <div class="panel">
+      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Vendor combination simulations <span style="font-weight: normal; color: var(--text-faint); font-size: 11px;">(top 10)</span></div>
+      <div style="max-height: 280px; overflow-y: auto;">
+        <table id="attempts-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border);">
+              <th style="text-align: left; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">2i</th>
+              <th style="text-align: left; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">1i</th>
+              <th style="text-align: left; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">Total</th>
+              <th style="text-align: left; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">Status</th>
+              <th style="text-align: right; padding: 6px 8px; color: var(--text-faint); font-weight: 600;">Min profit</th>
+            </tr>
+          </thead>
+          <tbody id="attempts-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Daily demand</div>
+      <div id="demand-chart" style="display: flex; align-items: flex-end; gap: 2px; height: 100px; padding: 4px 0;"></div>
+    </div>
+
+    <div class="panel">
+      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Vendor roster calendar</div>
+      <div class="scroll-x"><table id="roster" class="roster"></table></div>
+    </div>
+
+    <div class="panel">
+      <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">Per-vendor P&amp;L</div>
+      <div style="max-height: 400px; overflow-y: auto;">
+        <table class="pnl">
+          <thead>
+            <tr>
+              <th>Vendor</th><th>Type</th>
+              <th class="num">DD</th><th class="num">SD</th><th class="num">SL</th><th class="num">Idle</th>
+              <th class="num">Sites</th><th class="num">Fixed</th><th class="num">Payout</th><th class="num">Profit</th>
+            </tr>
+          </thead>
+          <tbody id="v-rows"></tbody>
+          <tfoot id="v-foot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const val = id => parseFloat($(id).value);
+
+function fmtINR(n) {
+  const sign = n < 0 ? '-' : '';
+  const a = Math.abs(n);
+  if (a >= 10000000) return sign + '₹' + (a/10000000).toFixed(2) + 'Cr';
+  if (a >= 100000) return sign + '₹' + (a/100000).toFixed(2) + 'L';
+  if (a >= 1000) return sign + '₹' + (a/1000).toFixed(1) + 'K';
+  return sign + '₹' + Math.round(a).toLocaleString('en-IN');
+}
+const fmtFull = n => '₹' + Math.round(n).toLocaleString('en-IN');
+
+function updateLabels() {
+  $('r-peak').textContent = val('s-peak').toFixed(1);
+  $('r-sl2').textContent = val('s-sl2') + '%';
+  $('r-sl1').textContent = val('s-sl1') + '%';
+  $('r-elig').textContent = val('s-elig') + '%';
+  $('r-tot').textContent = parseInt($('s-tot').value);
+}
+['s-peak','s-sl2','s-sl1','s-elig','s-tot'].forEach(id => {
+  $(id).addEventListener('input', updateLabels);
+});
+updateLabels();
+
+async function runSolver() {
+  const btn = $('solve-btn');
+  btn.disabled = true;
+  $('status').className = 'status solving';
+  $('status').textContent = 'Solving with CP-SAT (~75s)...';
+
+  const params = {
+    total_sites: parseInt($('s-tot').value),
+    days: parseInt($('a-days').value),
+    peak_ratio: val('s-peak'),
+    elig_pct: val('s-elig') / 100,
+    sl2_rate: val('s-sl2') / 100,
+    sl1_rate: val('s-sl1') / 100,
+    target_pxx: 0.75,
+    slab_rates: [val('a-s1'), val('a-s2'), val('a-s3'), val('a-s4')],
+    slab_rates_1i: [val('a-s1-1i'), val('a-s2-1i'), val('a-s3-1i'), val('a-s4-1i')],
+    slab_mix: [val('a-mix1')/100, val('a-mix2')/100, val('a-mix3')/100, val('a-mix4')/100],
+    dd_elig_slabs: [$('dd-s1').checked, $('dd-s2').checked, $('dd-s3').checked, $('dd-s4').checked],
+    cost_2i: val('a-c2'), cost_1i: val('a-c1'),
+    dd_discount: val('a-disc'),
+    baseline_per_site: val('a-base'),
+    time_limit_sec: parseInt($('a-tl').value),
+    max_working_days: parseInt($('a-mwd').value),
+  };
+
+  const t0 = performance.now();
+  try {
+    const r = await fetch('/solve', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(params),
+    });
+    const data = await r.json();
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+    btn.disabled = false;
+    if (!data.ok) {
+      $('status').className = 'status err';
+      $('status').textContent = '❌ ' + data.reason;
+      $('report-btn').disabled = true;
+      // If demand stats came along, show them so user sees what was attempted
+      if (data.daily) {
+        const totalDD = data.pair_count_per_day.reduce((a,b)=>a+b,0);
+        const totalSD = data.sd_count_per_day.reduce((a,b)=>a+b,0);
+        $('m-total').textContent = data.total_slips;
+        $('m-ach').textContent = 'N/A';
+        $('m-status').textContent = 'INFEASIBLE';
+        $('alerts').innerHTML = `<div class="alert danger">${data.reason}</div>
+          <div class="alert warning">Demand at these settings: ${totalDD} DD pairs + ${totalSD} SD sites = ${data.daily.reduce((a,b)=>a+b,0)} total monthly. ${data.total_slips} monthly slips. Try adjusting cost or eligibility.</div>`;
+      }
+      return;
+    }
+    window._lastSolveData = data;  // stash for PDF report
+    $('report-btn').disabled = false;
+    render(data, elapsed);
+  } catch (e) {
+    btn.disabled = false;
+    $('status').className = 'status err';
+    $('status').textContent = '❌ ' + e.message;
+  }
+}
+
+function render(data, elapsed) {
+  if (!data.all_profitable) {
+    $('status').className = 'status err';
+    $('status').innerHTML = `⚠️ Best partial solution in ${elapsed}s — ${data.v2} 2i + ${data.v1} 1i = ${data.total_v} vendors, but <strong>${data.unprofitable_amount.toLocaleString('en-IN')} total unprofitable</strong>. See alerts below. To fix: lower 2i fixed cost, raise DD discount, raise eligibility, or accept losses.`;
+  } else {
+    $('status').className = 'status ok';
+    $('status').textContent = `✓ Solved in ${elapsed}s — ${data.v2} 2i + ${data.v1} 1i = ${data.total_v} vendors, status: ${data.status}`;
+  }
+
+  $('k-v2').textContent = data.v2;
+  $('k-v1').textContent = data.v1;
+  $('k-pay').textContent = fmtINR(data.total_payout);
+  $('k-sav').textContent = data.savings_pct.toFixed(1) + '%';
+
+  $('m-total').textContent = data.total_slips;
+  $('m-ach').innerHTML = `P${Math.round(data.pxx_achieved * 100)}` + (data.pxx_achieved < 0.75 ? ' <small style="color: var(--warning); font-weight: normal;">(degraded from P75)</small>' : '');
+  $('m-status').textContent = data.status;
+
+  // Compute and render profit distribution percentiles
+  function pct(arr, p) {
+    if (!arr || arr.length === 0) return null;
+    const sorted = arr.slice().sort((a, b) => a - b);
+    if (p <= 0) return sorted[0];
+    if (p >= 100) return sorted[sorted.length - 1];
+    const idx = (p / 100) * (sorted.length - 1);
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    if (lo === hi) return sorted[lo];
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+  }
+  const profits2i = data.vendors.filter(v => v.type === '2-Install').map(v => v.profit);
+  const profits1i = data.vendors.filter(v => v.type === '1-Install').map(v => v.profit);
+  const avg2 = profits2i.length ? profits2i.reduce((a,b)=>a+b,0) / profits2i.length : null;
+  const avg1 = profits1i.length ? profits1i.reduce((a,b)=>a+b,0) / profits1i.length : null;
+  const distRows = [
+    {label: 'P0 (min)', p: 0},
+    {label: 'P25', p: 25},
+    {label: 'P50 (median)', p: 50},
+    {label: 'P75', p: 75},
+    {label: 'P90', p: 90},
+    {label: 'P100 (max)', p: 100},
+  ];
+  function fmtCell(val) {
+    if (val == null || isNaN(val)) return '<span style="color: var(--text-faint);">—</span>';
+    const color = val >= 0 ? 'var(--success)' : 'var(--danger)';
+    return `<span style="color: ${color};">${val < 0 ? '-' : ''}${fmtINR(Math.abs(val))}</span>`;
+  }
+  let distHTML = '';
+  for (const row of distRows) {
+    const v2 = pct(profits2i, row.p);
+    const v1 = pct(profits1i, row.p);
+    distHTML += `<tr style="border-bottom: 1px solid var(--border);">
+      <td style="padding: 6px 8px; color: var(--text-soft);">${row.label}</td>
+      <td style="padding: 6px 8px; text-align: right;">${fmtCell(v2)}</td>
+      <td style="padding: 6px 8px; text-align: right;">${fmtCell(v1)}</td>
+    </tr>`;
+  }
+  distHTML += `<tr style="border-top: 2px solid var(--border-strong); background: var(--bg);">
+    <td style="padding: 8px; font-weight: 700;">Average</td>
+    <td style="padding: 8px; text-align: right; font-weight: 700;">${fmtCell(avg2)}</td>
+    <td style="padding: 8px; text-align: right; font-weight: 700;">${fmtCell(avg1)}</td>
+  </tr>`;
+  $('profit-dist-body').innerHTML = distHTML;
+
+  const alerts = [];
+  if (data.min_2i < 0 || data.min_1i < 0) alerts.push({lvl:'danger', t:`Some vendors are unprofitable. Min 2i=${fmtINR(data.min_2i)}, min 1i=${fmtINR(data.min_1i)}.`});
+  if (data.pxx_achieved < 0.75) alerts.push({lvl:'warning', t:`Pxx degraded from P75 to P${Math.round(data.pxx_achieved*100)} to keep all vendors profitable.`});
+  if (alerts.length === 0) alerts.push({lvl:'success', t:`Optimal: ${data.total_v} vendors, all profitable, Pxx target hit.`});
+  $('alerts').innerHTML = alerts.map(a => `<div class="alert ${a.lvl}">${a.t}</div>`).join('');
+
+  // ===== Render combinations table (top 10) =====
+  const attempts = (data.all_attempts || []).slice();
+  // Sort: profitable first (highest min profit), then feasible (highest min), then infeasible/timeout last
+  attempts.sort((a, b) => {
+    const aProf = a.all_profitable ? 1 : 0;
+    const bProf = b.all_profitable ? 1 : 0;
+    if (aProf !== bProf) return bProf - aProf;
+    const aHasMin = a.min_profit != null && isFinite(a.min_profit);
+    const bHasMin = b.min_profit != null && isFinite(b.min_profit);
+    if (aHasMin !== bHasMin) return bHasMin - aHasMin;
+    if (aHasMin) return b.min_profit - a.min_profit;
+    return 0;
+  });
+  const top10 = attempts.slice(0, 10);
+  // Find winner: matches data.v2 + data.v1 + all_profitable
+  const winnerIdx = top10.findIndex(a =>
+    a.v2 === data.v2 && a.v1 === data.v1 && a.all_profitable
+  );
+  let tbodyHTML = '';
+  top10.forEach((a, idx) => {
+    const isWinner = idx === winnerIdx;
+    const statusClass = a.all_profitable ? 'OPTIMAL' : (String(a.status).toLowerCase().includes('feas') ? 'FEASIBLE' : a.status);
+    const statusColor = a.all_profitable
+      ? '#187a3b'  // green
+      : (String(a.status).toLowerCase().includes('feas') ? '#1a5fb4' : '#a3a3a3');  // blue or grey
+    const minProfitCell = (a.min_profit != null && isFinite(a.min_profit))
+      ? (a.min_profit < 0
+          ? `<span style="color:#c00;">-₹${Math.abs(a.min_profit/1000).toFixed(1)}K</span>`
+          : `<span style="color:#187a3b;">₹${(a.min_profit/1000).toFixed(1)}K</span>`)
+      : '<span style="color: var(--text-faint);">—</span>';
+    const bg = isWinner ? 'background: #e8f5ed;' : '';
+    tbodyHTML += `<tr style="border-bottom: 1px solid var(--border); ${bg}">
+      <td style="padding: 6px 8px;">${a.v2}</td>
+      <td style="padding: 6px 8px;">${a.v1}</td>
+      <td style="padding: 6px 8px; font-weight: 600;">${a.total}</td>
+      <td style="padding: 6px 8px; color: ${statusColor}; font-weight: 500;">${isWinner ? '✓ ' : ''}${statusClass}</td>
+      <td style="padding: 6px 8px; text-align: right;">${minProfitCell}</td>
+    </tr>`;
+  });
+  if (top10.length === 0) {
+    tbodyHTML = '<tr><td colspan="5" style="padding: 12px; color: var(--text-faint); text-align: center;">No iterations recorded.</td></tr>';
+  }
+  $('attempts-body').innerHTML = tbodyHTML;
+
+  // ===== Render daily demand bar chart =====
+  const maxDaily = Math.max(...data.daily);
+  let chartHTML = '';
+  data.daily.forEach((val, idx) => {
+    const isPeak = idx === data.peak_day;
+    const heightPct = maxDaily > 0 ? (val / maxDaily) * 100 : 0;
+    const color = isPeak ? '#ef9f27' : '#cfe0f5';
+    chartHTML += `<div title="Day ${idx + 1}: ${val} sites" style="flex: 1; min-width: 8px; height: ${heightPct}%; background: ${color}; border-radius: 2px 2px 0 0;"></div>`;
+  });
+  $('demand-chart').innerHTML = chartHTML;
+
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html = '<thead><tr>';
+  html += '<th class="day">Day</th><th>Dem</th><th>Prs</th><th>SL</th>';
+  for (let v = 0; v < data.total_v; v++) html += `<th>V${String(v+1).padStart(2,'0')}${v < data.v2 ? '(2i)' : '(1i)'}</th>`;
+  html += '</tr></thead><tbody>';
+  for (let d = 0; d < data.daily.length; d++) {
+    const isPeak = d === data.peak_day;
+    html += `<tr${isPeak ? ' class="peak"' : ''}>`;
+    html += `<td class="day">${d+1} ${DAY_NAMES[(d + 3) % 7]}</td>`;
+    html += `<td>${data.daily[d]}</td><td>${data.pair_count_per_day[d]}</td><td>${data.sl_needed_by_day[d] || 0}</td>`;
+    for (let v = 0; v < data.total_v; v++) {
+      const c = data.roster[v][d];
+      let label;
+      if (c.type === 'DD') label = `DD<br><span style="font-size:8px;">${c.label}</span>`;
+      else if (c.type === 'SD') label = `SD<br><span style="font-size:8px;">${c.label}</span>`;
+      else if (c.type === 'SL') label = 'SL';
+      else label = '—';
+      html += `<td style="padding:0;"><div class="cell ${c.type}">${label}</div></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  $('roster').innerHTML = html;
+
+  $('v-rows').innerHTML = data.vendors.map(v => `
+    <tr>
+      <td>${v.name}</td><td>${v.type}</td>
+      <td class="num">${v.dd_days}</td><td class="num">${v.sd_sites}</td>
+      <td class="num">${v.sl_days}</td><td class="num">${v.idle_days}</td>
+      <td class="num">${v.sites}</td>
+      <td class="num">${fmtFull(v.fixed_cost)}</td><td class="num">${fmtFull(v.payout)}</td>
+      <td class="num" style="color:${v.profit >= 0 ? 'var(--success)' : 'var(--danger)'};font-weight:600;">${fmtFull(v.profit)}</td>
+    </tr>
+  `).join('');
+
+  const totDD = data.vendors.reduce((s,x)=>s+x.dd_days,0);
+  const totSD = data.vendors.reduce((s,x)=>s+x.sd_sites,0);
+  const totSL = data.vendors.reduce((s,x)=>s+x.sl_days,0);
+  const totIdle = data.vendors.reduce((s,x)=>s+x.idle_days,0);
+  const totSites = data.vendors.reduce((s,x)=>s+x.sites,0);
+  $('v-foot').innerHTML = `
+    <tr>
+      <td>Total</td><td></td>
+      <td class="num">${totDD}</td><td class="num">${totSD}</td>
+      <td class="num">${totSL}</td><td class="num">${totIdle}</td>
+      <td class="num">${totSites}</td>
+      <td class="num">${fmtINR(data.total_cost)}</td><td class="num">${fmtINR(data.total_payout)}</td>
+      <td class="num" style="color:${data.total_profit >= 0 ? 'var(--success)' : 'var(--danger)'};">${fmtINR(data.total_profit)}</td>
+    </tr>
+  `;
+}
+
+$('solve-btn').addEventListener('click', runSolver);
+
+async function generateReport() {
+  if (!window._lastSolveData) {
+    alert('Please run the solver first.');
+    return;
+  }
+  const city = $('a-city').value.trim();
+  if (!city) {
+    alert('Please enter a city name for the report.');
+    $('a-city').focus();
+    return;
+  }
+  const btn = $('report-btn');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generating PDF...';
+  try {
+    const r = await fetch('/report', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({city: city, data: window._lastSolveData}),
+    });
+    if (!r.ok) {
+      const errText = await r.text();
+      let errMsg = `PDF generation failed (HTTP ${r.status})`;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.reason) errMsg = parsed.reason;
+      } catch(e) {
+        // Response wasn't JSON, show raw text snippet
+        if (errText) errMsg += ': ' + errText.slice(0, 200);
+      }
+      alert('❌ ' + errMsg);
+      console.error('PDF error response:', errText);
+      return;
+    }
+    const blob = await r.blob();
+    const safeCity = city.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_') || 'city';
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `SolarSquare_VendorPlan_${safeCity}_${today}.pdf`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+}
+$('report-btn').addEventListener('click', generateReport);
+</script>
+</body>
+</html>
