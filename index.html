@@ -75,7 +75,8 @@
   <div>
     <div class="panel">
       <h3>Sliders</h3>
-      <label class="field"><div class="row"><span>Peak to BAU ratio</span><span id="r-peak">1.3</span></div><input type="range" id="s-peak" min="1" max="2" step="0.1" value="1.3"></label>
+      <label class="field"><div class="row"><span>Demand stress (P50/P75/P90)</span><span id="r-peak">P90</span></div><input type="range" id="s-peak" min="1.3" max="1.7" step="0.05" value="1.6"></label>
+      <label class="field"><div class="row"><span>Skew vs flat</span><span id="r-skew">100% (historical)</span></div><input type="range" id="s-skew" min="0" max="100" step="5" value="100"></label>
       <label class="field"><div class="row"><span>Slip % on 2-install sites</span><span id="r-sl2">10%</span></div><input type="range" id="s-sl2" min="0" max="100" step="1" value="10"></label>
       <label class="field"><div class="row"><span>Slip % on 1-install sites</span><span id="r-sl1">20%</span></div><input type="range" id="s-sl1" min="0" max="100" step="1" value="20"></label>
       <label class="field"><div class="row"><span>2i eligibility % (daily)</span><span id="r-elig">40%</span></div><input type="range" id="s-elig" min="20" max="100" step="1" value="40"></label>
@@ -130,7 +131,7 @@
 
     <div class="info-row" style="grid-template-columns: repeat(3, 1fr);">
       <div><p class="label">Total slips/mo</p><p class="value" id="m-total">—</p></div>
-      <div><p class="label">Pxx achieved</p><p class="value" id="m-ach">—</p></div>
+      <div><p class="label">Slip coverage</p><p class="value" id="m-ach">—</p></div>
       <div><p class="label">Solver status</p><p class="value" id="m-status">—</p></div>
     </div>
 
@@ -212,13 +213,20 @@ function fmtINR(n) {
 const fmtFull = n => '₹' + Math.round(n).toLocaleString('en-IN');
 
 function updateLabels() {
-  $('r-peak').textContent = val('s-peak').toFixed(1);
+  const v = val('s-peak');
+  $('r-peak').textContent = v <= 1.45 ? 'P50 (typical)' : v <= 1.55 ? 'P75 (stressed)' : 'P90 (planning)';
+  const sk = parseFloat($('s-skew').value);
+  let skLabel;
+  if (sk <= 5) skLabel = '0% (flat)';
+  else if (sk >= 95) skLabel = '100% (historical)';
+  else skLabel = `${sk}% (blended)`;
+  $('r-skew').textContent = skLabel;
   $('r-sl2').textContent = val('s-sl2') + '%';
   $('r-sl1').textContent = val('s-sl1') + '%';
   $('r-elig').textContent = val('s-elig') + '%';
   $('r-tot').textContent = parseInt($('s-tot').value);
 }
-['s-peak','s-sl2','s-sl1','s-elig','s-tot'].forEach(id => {
+['s-peak','s-skew','s-sl2','s-sl1','s-elig','s-tot'].forEach(id => {
   $(id).addEventListener('input', updateLabels);
 });
 updateLabels();
@@ -233,6 +241,7 @@ async function runSolver() {
     total_sites: parseInt($('s-tot').value),
     days: parseInt($('a-days').value),
     peak_ratio: val('s-peak'),
+    skew_pct: parseFloat($('s-skew').value),
     elig_pct: val('s-elig') / 100,
     sl2_rate: val('s-sl2') / 100,
     sl1_rate: val('s-sl1') / 100,
@@ -299,7 +308,7 @@ function render(data, elapsed) {
   $('k-sav').textContent = data.savings_pct.toFixed(1) + '%';
 
   $('m-total').textContent = data.total_slips;
-  $('m-ach').innerHTML = `P${Math.round(data.pxx_achieved * 100)}` + (data.pxx_achieved < 0.75 ? ' <small style="color: var(--warning); font-weight: normal;">(degraded from P75)</small>' : '');
+  $('m-ach').innerHTML = `${Math.round(data.pxx_achieved * 100)}%` + (data.pxx_achieved < 0.75 ? ' <small style="color: var(--warning); font-weight: normal;">(degraded from 75%)</small>' : '');
   $('m-status').textContent = data.status;
 
   // Compute and render profit distribution percentiles
@@ -349,8 +358,8 @@ function render(data, elapsed) {
 
   const alerts = [];
   if (data.min_2i < 0 || data.min_1i < 0) alerts.push({lvl:'danger', t:`Some vendors are unprofitable. Min 2i=${fmtINR(data.min_2i)}, min 1i=${fmtINR(data.min_1i)}.`});
-  if (data.pxx_achieved < 0.75) alerts.push({lvl:'warning', t:`Pxx degraded from P75 to P${Math.round(data.pxx_achieved*100)} to keep all vendors profitable.`});
-  if (alerts.length === 0) alerts.push({lvl:'success', t:`Optimal: ${data.total_v} vendors, all profitable, Pxx target hit.`});
+  if (data.pxx_achieved < 0.75) alerts.push({lvl:'warning', t:`Slip coverage degraded from 75% to ${Math.round(data.pxx_achieved*100)}% to keep all vendors profitable.`});
+  if (alerts.length === 0) alerts.push({lvl:'success', t:`Optimal: ${data.total_v} vendors, all profitable, full slip coverage.`});
   $('alerts').innerHTML = alerts.map(a => `<div class="alert ${a.lvl}">${a.t}</div>`).join('');
 
   // ===== Render combinations table (top 10) =====
